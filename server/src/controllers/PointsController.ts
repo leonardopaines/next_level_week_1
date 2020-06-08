@@ -21,20 +21,25 @@ class PointsController {
     }
 
     async show(request: Request, response: Response) {
-        const { id } = request.body;
+        const { id } = request.params;
+
         const point = await connection('points').where('id', id).first();
 
-        if (!point)
-            return response
-                .status(404)
-                .json({ message: 'Point not found.' });
+        if (!point) {
+            return response.status(400).json({ error: { message: "Point not found." } })
+        }
+
+        const serializedPoints = {
+            ...point,
+            image_url: `http://192.168.0.101:3333/uploads/${point.image}`,
+        }
 
         const items = await connection('items')
             .join('point_items', 'items.id', '=', 'point_items.item_id')
             .where('point_items.point_id', id)
-            .select('items.title');
+            .select('items.title', 'items.id');
 
-        return response.json({ point, items });
+        return response.json({ point: serializedPoints, items });
     }
 
     async create(request: Request, response: Response) {
