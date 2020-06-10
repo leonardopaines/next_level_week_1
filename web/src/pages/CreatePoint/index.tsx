@@ -7,7 +7,18 @@ import { LeafletMouseEvent } from 'leaflet';
 import logo from '../../assets/logo.svg';
 import './styles.css';
 
-import { apiColeta, apiIBGE } from '../../services';
+import { apiColeta, apiIBGE, apiGoogleMaps } from '../../services';
+import DropZone from '../../components/DropZone';
+
+interface GoogleMapsResponse {
+    results: {
+        address_components: {
+            long_name: string,
+            short_name: string,
+            types: string[]
+        }[]
+    }[]
+}
 
 interface Item {
     id: number,
@@ -32,6 +43,7 @@ const CreatePoint = () => {
     const [selectedCity, setSelectedCity] = useState<string>('0');
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     const [selectedPosition, setSelectedPosition] = useState<[number, number]>([0, 0]);
+    const [selectedFile, setSelectedFile] = useState<File>();
 
     const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
 
@@ -84,6 +96,28 @@ const CreatePoint = () => {
         },
         [selectedUf]);
 
+    useEffect(
+        () => {
+            if (selectedPosition[0] === 0 || selectedPosition[1] === 0)
+                return;
+
+            apiGoogleMaps.get<GoogleMapsResponse>(`json?key=AIzaSyC4LAQqfbhxbWl-8x5IdBLYw3gCYAmT-Bw&latlng=${selectedPosition[0]},${selectedPosition[1]}`)
+                .then(response => {
+                    console.log(response.data.results[0]);
+                    response.data.results[0].address_components.map(item => {
+
+                        if (item.types.find(type => type === 'administrative_area_level_1'))
+                            setSelectedUf(item.short_name);
+                        if (item.types.find(type => type === 'administrative_area_level_2'))
+                            setSelectedCity(item.short_name);
+
+                        return item;
+                    });
+                });
+        },
+        [selectedPosition]
+    )
+
     function handleSeletecUf(event: ChangeEvent<HTMLSelectElement>) {
         setSelectedUf(event.target.value);
     }
@@ -97,6 +131,8 @@ const CreatePoint = () => {
             event.latlng.lat,
             event.latlng.lng
         ]);
+
+
     }
 
     function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -116,14 +152,21 @@ const CreatePoint = () => {
 
         const [latitude, longitude] = selectedPosition;
 
-        const data = {
-            ...formData,
-            uf: selectedUf,
-            city: selectedCity,
-            latitude,
-            longitude,
-            items: selectedItems
-        }
+        const data = new FormData();
+
+        const { name, email, whatsapp } = formData;
+
+        data.append('name', name);
+        data.append('email', email);
+        data.append('whatsapp', whatsapp);
+        data.append('uf', selectedUf);
+        data.append('city', selectedCity);
+        data.append('latitude', String(latitude));
+        data.append('longitude', String(longitude));
+        data.append('items', selectedItems.join(','));
+        
+        if (selectedFile)
+            data.append('image', selectedFile);
 
         await apiColeta.post('points', data)
             .then(response => {
@@ -144,6 +187,9 @@ const CreatePoint = () => {
             </header>
             <form onSubmit={handleSubmit}>
                 <h1>Casdastro do <br /> ponto de coleta</h1>
+
+                <DropZone onFileUploaded={setSelectedFile} />
+
                 <fieldset>
                     <legend>
                         <h2>Dados</h2>
