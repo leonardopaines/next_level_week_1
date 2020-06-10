@@ -17,11 +17,15 @@ class PointsController {
             .distinct()
             .select('points.*');
 
-        const serializePoints = points.map(point => (
-            {
-                ...points,
+        const serializePoints = points.map(point => {
+            return {
+                id: point.id,
+                name: point.name,
+                latitude: point.latitude,
+                longitude: point.longitude,
                 image_url: `http://192.168.15.6:3333/uploads/${point.image}`
-            }));
+            }
+        });
 
         return response.json(serializePoints);
     }
